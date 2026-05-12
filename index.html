@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Math Garden</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { touch-action: manipulation; -webkit-user-select: none; user-select: none; overflow: hidden; background: #f0fdf4; }
+        .bounce-in { animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes bounceIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .pop-out:active { transform: scale(0.9); }
+        .formula-card { background: white; border: 6px solid #16a34a; border-radius: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .crossed-out { position: relative; opacity: 0.3; filter: grayscale(100%); }
+        .crossed-out::after { content: '❌'; position: absolute; top: 0; left: 0; font-size: 1.2em; text-shadow: 1px 1px 2px white; }
+        .group-box { border: 2px dashed #cbd5e1; padding: 4px; border-radius: 12px; display: flex; gap: 4px; align-items: center; justify-content: center; background: #f8fafc; }
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans text-slate-800">
+
+    <header class="p-4 flex flex-col items-center bg-white/50 shadow-sm">
+        <div class="flex justify-between w-full items-center mb-2">
+            <button onclick="confirmExit()" class="text-3xl bg-white rounded-full p-2 shadow-md pop-out">🏠</button>
+            <h1 class="text-2xl font-black text-green-600">Math Garden</h1>
+            <div id="score-display" class="bg-yellow-400 text-white px-4 py-1 rounded-full font-black">Score: 0</div>
+        </div>
+        <div id="progress-container" class="flex gap-2"></div>
+    </header>
+
+    <main id="app" class="flex-grow flex flex-col items-center justify-center p-4 relative overflow-y-auto"></main>
+
+    <script>
+        const app = document.getElementById('app');
+        const progressEl = document.getElementById('progress-container');
+        const scoreEl = document.getElementById('score-display');
+        
+        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: 0, total: 10, results: [] };
+
+        function speak(t) { window.speechSynthesis.cancel(); const m = new SpeechSynthesisUtterance(t); m.lang = 'en-US'; m.rate = 0.85; window.speechSynthesis.speak(m); }
+
+        function createModeCard(m) {
+            const card = document.createElement('div');
+            card.className = `${m.color} h-32 w-full max-w-[160px] rounded-3xl shadow-xl flex flex-col items-center justify-center cursor-pointer bounce-in pop-out border-b-8 border-black/10`;
+            card.innerHTML = `<span class="text-6xl text-white font-bold">${m.icon}</span><span class="text-white font-black uppercase text-xs mt-1">${m.label}</span>`;
+            card.onclick = () => { speak(m.label); gameState.mode = m; showLevels(); };
+            return card;
+        }
+
+        function initMenu() {
+            gameState.round = 1; gameState.score = 0; gameState.results = [];
+            progressEl.innerHTML = '';
+            
+            app.innerHTML = `
+                <div class="flex flex-col items-center gap-6 w-full max-w-md">
+                    <div id="row-1" class="flex justify-center w-full"></div>
+                    <div id="row-2" class="flex justify-center gap-6 w-full"></div>
+                    <div id="row-3" class="flex justify-center gap-6 w-full"></div>
+                </div>
+            `;
+            
+            const mdes = {
+                count: { id: 'count', label: 'Count', icon: '🍎', color: 'bg-red-400' },
+                add: { id: 'add', label: 'Add', icon: '＋', color: 'bg-green-400' },
+                sub: { id: 'sub', label: 'Minus', icon: '－', color: 'bg-orange-400' },
+                mul: { id: 'mul', label: 'Times', icon: '×', color: 'bg-purple-400' },
+                div: { id: 'div', label: 'Divide', icon: '÷', color: 'bg-pink-400' }
+            };
+
+            document.getElementById('row-1').appendChild(createModeCard(mdes.count));
+            document.getElementById('row-2').appendChild(createModeCard(mdes.add));
+            document.getElementById('row-2').appendChild(createModeCard(mdes.sub));
+            document.getElementById('row-3').appendChild(createModeCard(mdes.mul));
+            document.getElementById('row-3').appendChild(createModeCard(mdes.div));
+        }
+
+        function showLevels() {
+            app.innerHTML = `<div class="flex gap-6">
+                <div onclick="start(10)" class="bg-white border-8 border-yellow-300 w-44 h-44 rounded-3xl flex flex-col items-center justify-center cursor-pointer shadow-xl bounce-in pop-out">⭐<span class="text-xl font-black">EASY</span></div>
+                <div onclick="start(20)" class="bg-white border-8 border-red-400 w-44 h-44 rounded-3xl flex flex-col items-center justify-center cursor-pointer shadow-xl bounce-in pop-out">⭐⭐<span class="text-xl font-black">HARD</span></div>
+            </div>`;
+            speak("Choose Easy or Hard.");
+        }
+
+        function start(max) { gameState.maxNum = max; nextRound(); }
+
+        function updateTracker() {
+            progressEl.innerHTML = '';
+            for(let i=0; i<gameState.total; i++) {
+                const dot = document.createElement('div');
+                let color = 'bg-gray-300';
+                if (gameState.results[i] === true) color = 'bg-green-500';
+                if (gameState.results[i] === false) color = 'bg-red-500';
+                if (i === gameState.round - 1 && gameState.results[i] === undefined) color = 'bg-yellow-400 border-2 border-yellow-600';
+                dot.className = `w-4 h-4 rounded-full ${color}`;
+                progressEl.appendChild(dot);
+            }
+            scoreEl.innerText = `Score: ${gameState.score}`;
+        }
+
+        function nextRound() {
+            if (gameState.round > gameState.total) { showEnd(); return; }
+            updateTracker();
+            let v1, v2, formula, speech, m = gameState.mode.id;
+            
+            if (m === 'count') {
+                v1 = Math.floor(Math.random() * gameState.maxNum) + 1; gameState.ans = v1;
+                formula = `How many?`; speech = `How many apples?`;
+            } else if (m === 'add') {
+                v1 = Math.floor(Math.random() * (gameState.maxNum/2)) + 1; v2 = Math.floor(Math.random() * (gameState.maxNum/2)) + 1;
+                gameState.ans = v1 + v2; formula = `${v1} + ${v2} = ?`; speech = `${v1} plus ${v2}`;
+            } else if (m === 'sub') {
+                v1 = Math.floor(Math.random() * (gameState.maxNum - 2)) + 2; v2 = Math.floor(Math.random() * v1) + 1;
+                gameState.ans = v1 - v2; formula = `${v1} - ${v2} = ?`; speech = `${v1} minus ${v2}`;
+            } else if (m === 'mul') {
+                v1 = Math.floor(Math.random() * 4) + 1; v2 = 2;
+                gameState.ans = v1 * v2; formula = `${v1} × ${v2} = ?`; speech = `${v1} times ${v2}`;
+            } else if (m === 'div') {
+                gameState.ans = Math.floor(Math.random() * 4) + 1; v2 = 2; v1 = gameState.ans * v2;
+                formula = `${v1} ÷ ${v2} = ?`; speech = `Share ${v1} into ${v2} groups`;
+            }
+
+            app.innerHTML = `
+                <div class="formula-card p-6 w-full max-w-sm text-center bounce-in">
+                    <div class="text-gray-400 font-bold mb-1 uppercase text-xs tracking-widest">Question ${gameState.round} of ${gameState.total}</div>
+                    <div class="text-4xl font-black text-green-700 mb-4">${formula}</div>
+                    <div class="flex flex-wrap justify-center gap-3 mb-6 min-h-[120px]">${renderVisuals(v1, v2, m)}</div>
+                    <div class="grid grid-cols-2 gap-4">${genOpts(gameState.ans)}</div>
+                </div>`;
+            speak(speech);
+        }
+
+        function renderVisuals(v1, v2, m) {
+            let h = '';
+            if (m === 'sub') {
+                for(let i=0; i<v1-v2; i++) h += `<span class="text-4xl">🎈</span>`;
+                for(let i=0; i<v2; i++) h += `<span class="text-4xl crossed-out">🎈</span>`;
+            } else if (m === 'mul') {
+                for(let g=0; g<v1; g++) {
+                    h += `<div class="group-box">`;
+                    for(let i=0; i<v2; i++) h += `<span class="text-2xl">🐝</span>`;
+                    h += `</div>`;
+                }
+            } else if (m === 'add') {
+                for(let i=0; i<v1; i++) h += `<span class="text-4xl">🍪</span>`;
+                h += `<span class="text-2xl flex items-center mx-1 text-green-500 font-bold">+</span>`;
+                for(let i=0; i<v2; i++) h += `<span class="text-4xl">🍓</span>`;
+            } else if (m === 'div') {
+                for(let g=0; g<v2; g++) {
+                    h += `<div class="group-box">`;
+                    for(let i=0; i<gameState.ans; i++) h += `<span class="text-2xl">🍕</span>`;
+                    h += `</div>`;
+                }
+            } else {
+                for(let i=0; i<v1; i++) h += `<span class="text-4xl">🍎</span>`;
+            }
+            return h;
+        }
+
+        function genOpts(correct) {
+            let o = [correct];
+            while(o.length < 4) {
+                let w = Math.max(0, correct + (Math.floor(Math.random() * 5) - 2));
+                if(!o.includes(w)) o.push(w);
+            }
+            return o.sort(()=>Math.random()-0.5).map(v => `<button onclick="check(${v})" class="bg-green-500 text-white text-3xl font-black py-4 rounded-2xl shadow-lg border-b-8 border-green-700 pop-out">${v}</button>`).join('');
+        }
+
+        function check(v) {
+            const correct = (v === gameState.ans);
+            gameState.results.push(correct);
+            if(correct) { gameState.score++; speak("Good job!"); app.innerHTML = `<div class="text-9xl bounce-in">👍</div>`; }
+            else { speak("Oops! That's okay!"); app.innerHTML = `<div class="text-9xl bounce-in">😢</div>`; }
+            gameState.round++;
+            setTimeout(nextRound, 1500);
+        }
+
+        function showEnd() {
+            updateTracker();
+            app.innerHTML = `<div class="text-center bounce-in">
+                <div class="text-8xl mb-4">🏆</div>
+                <h2 class="text-3xl font-black mb-2">FINISHED!</h2>
+                <p class="text-xl font-bold mb-6">Score: ${gameState.score} / 10</p>
+                <button onclick="initMenu()" class="bg-orange-500 text-white px-10 py-3 rounded-full text-xl font-black shadow-xl pop-out">PLAY AGAIN</button>
+            </div>`;
+            speak(`Great job! You finished with a score of ${gameState.score}!`);
+        }
+
+        function confirmExit() { if(confirm("Quit game?")) initMenu(); }
+        window.onload = initMenu;
+    </script>
+</body>
+</html>
