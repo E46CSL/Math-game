@@ -22,19 +22,29 @@
             border: 6px solid #16a34a; 
             border-radius: 2rem; 
             box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+            width: 95%;
+            max-width: 500px;
         }
 
         .crossed-out { position: relative; opacity: 0.3; filter: grayscale(100%); }
         .crossed-out::after { content: '❌'; position: absolute; top: 0; left: 0; font-size: 1.2em; text-shadow: 1px 1px 2px white; }
         
+        /* Grid container for neat 10-column layout */
+        .visual-grid {
+            display: grid;
+            grid-template-columns: repeat(10, 1fr);
+            gap: 4px;
+            justify-items: center;
+            align-items: center;
+            width: 100%;
+        }
+
         .group-box { 
             border: 2px dashed #cbd5e1; 
             padding: 4px; 
-            border-radius: 12px; 
+            border-radius: 8px; 
             display: flex; 
-            gap: 4px; 
-            align-items: center; 
-            justify-content: center; 
+            gap: 2px; 
             background: #f8fafc; 
         }
 
@@ -96,14 +106,12 @@
         function initMenu() {
             gameState.round = 1; gameState.score = 0; gameState.results = [];
             progressEl.innerHTML = '';
-            
             app.innerHTML = `
                 <div class="flex flex-col items-center gap-6 w-full max-w-md">
                     <div id="row-1" class="flex justify-center w-full"></div>
                     <div id="row-2" class="flex justify-center gap-6 w-full"></div>
                     <div id="row-3" class="flex justify-center gap-6 w-full"></div>
-                </div>
-            `;
+                </div>`;
             
             const mdes = {
                 count: { id: 'count', label: 'Count', icon: '🍎', color: 'bg-red-400' },
@@ -127,7 +135,6 @@
                 { num: 50, stars: '⭐⭐⭐', label: 'Advanced', color: 'border-red-500', text: 'red-600' },
                 { num: 100, stars: '⭐⭐⭐⭐', label: 'Expert', color: 'border-purple-600', text: 'purple-700' }
             ];
-
             app.innerHTML = `
                 <div class="grid grid-cols-2 gap-4 w-full max-w-lg">
                     ${levels.map(l => `
@@ -135,8 +142,7 @@
                             <span class="text-3xl">${l.stars}</span>
                             <span class="text-2xl font-black ${l.text}">${l.label}</span>
                             <span class="text-slate-400 font-bold">Within ${l.num}</span>
-                        </div>
-                    `).join('')}
+                        </div>`).join('')}
                 </div>`;
             speak("Choose your level!");
         }
@@ -172,53 +178,41 @@
                 v1 = Math.floor(Math.random() * (gameState.maxNum - 2)) + 2; v2 = Math.floor(Math.random() * v1) + 1;
                 gameState.ans = v1 - v2; formula = `${v1} - ${v2} = ?`; speech = `${v1} minus ${v2}`;
             } else if (m === 'mul') {
-                v1 = Math.floor(Math.random() * (gameState.maxNum / 2)) + 1; v2 = 2;
+                v1 = Math.min(Math.floor(Math.random() * (gameState.maxNum / 4)) + 1, 10); v2 = 2;
                 gameState.ans = v1 * v2; formula = `${v1} × ${v2} = ?`; speech = `${v1} times ${v2}`;
             } else if (m === 'div') {
-                gameState.ans = Math.floor(Math.random() * (gameState.maxNum / 2)) + 1; v2 = 2; v1 = gameState.ans * v2;
+                gameState.ans = Math.floor(Math.random() * (gameState.maxNum / 4)) + 1; v2 = 2; v1 = gameState.ans * v2;
                 formula = `${v1} ÷ ${v2} = ?`; speech = `Share ${v1} into ${v2} groups`;
             }
 
             app.innerHTML = `
-                <div class="formula-card p-6 w-full max-w-sm text-center bounce-in">
+                <div class="formula-card p-6 text-center bounce-in">
                     <div class="text-gray-400 font-bold mb-1 uppercase text-xs tracking-widest">Question ${gameState.round} of ${gameState.total}</div>
                     <div class="text-4xl font-black text-green-700 mb-4">${formula}</div>
-                    <div class="flex flex-wrap justify-center gap-3 mb-6 min-h-[120px] overflow-hidden">${renderVisuals(v1, v2, m)}</div>
-                    <div class="grid grid-cols-2 gap-4">${genOpts(gameState.ans)}</div>
+                    <div class="flex justify-center items-center min-h-[180px] max-h-[350px] overflow-y-auto p-4 border rounded-xl bg-slate-50">
+                        <div class="visual-grid">${renderVisuals(v1, v2, m)}</div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mt-6">${genOpts(gameState.ans)}</div>
                 </div>`;
             speak(speech);
         }
 
         function renderVisuals(v1, v2, m) {
             let h = '';
-            const maxIcons = 20; 
-            const showV1 = v1 > maxIcons ? maxIcons : v1;
+            let total = m === 'add' ? (v1 + v2) : (m === 'mul' || m === 'div' ? v1 : v1);
+            let sizeClass = total > 50 ? "text-xl" : (total > 20 ? "text-2xl" : "text-4xl");
 
             if (m === 'sub') {
-                for(let i=0; i<showV1-v2; i++) h += `<span class="text-2xl md:text-4xl">🎈</span>`;
-                for(let i=0; i<v2; i++) h += `<span class="text-2xl md:text-4xl crossed-out">🎈</span>`;
-            } else if (m === 'mul') {
-                for(let g=0; g<v1; g++) {
-                    if(g >= 5) break; 
-                    h += `<div class="group-box">`;
-                    for(let i=0; i<v2; i++) h += `<span class="text-xl">🐝</span>`;
-                    h += `</div>`;
-                }
+                for(let i=0; i<v1-v2; i++) h += `<span class="${sizeClass}">🎈</span>`;
+                for(let i=0; i<v2; i++) h += `<span class="${sizeClass} crossed-out">🎈</span>`;
+            } else if (m === 'mul' || m === 'div') {
+                // For multiplication/division, we keep group boxes but they still follow grid flow
+                for(let i=0; i<v1; i++) h += `<span class="${sizeClass}">${m === 'mul' ? '🐝' : '🍕'}</span>`;
             } else if (m === 'add') {
-                for(let i=0; i<showV1; i++) h += `<span class="text-2xl md:text-4xl">🍪</span>`;
-                h += `<span class="text-2xl flex items-center mx-1 text-green-500 font-bold">+</span>`;
-                for(let i=0; i< (v2 > 10 ? 10 : v2); i++) h += `<span class="text-2xl md:text-4xl">🍓</span>`;
-            } else if (m === 'div') {
-                for(let g=0; g<v2; g++) {
-                    h += `<div class="group-box">`;
-                    for(let i=0; i<gameState.ans; i++) {
-                        if(i >= 10) break;
-                        h += `<span class="text-xl">🍕</span>`;
-                    }
-                    h += `</div>`;
-                }
+                for(let i=0; i<v1; i++) h += `<span class="${sizeClass}">🍪</span>`;
+                for(let i=0; i<v2; i++) h += `<span class="${sizeClass}">🍓</span>`;
             } else {
-                for(let i=0; i<showV1; i++) h += `<span class="text-2xl md:text-4xl">🍎</span>`;
+                for(let i=0; i<v1; i++) h += `<span class="${sizeClass}">🍎</span>`;
             }
             return h;
         }
@@ -250,7 +244,7 @@
                 <p class="text-xl font-bold mb-6">Final Score: ${gameState.score} / 10</p>
                 <button onclick="initMenu()" class="bg-orange-500 text-white px-10 py-3 rounded-full text-xl font-black shadow-xl pop-out">PLAY AGAIN</button>
             </div>`;
-            speak(`Great job! You finished Math Mania with a score of ${gameState.score}!`);
+            speak(`Great job! You finished with a score of ${gameState.score}!`);
         }
 
         function confirmExit() { if(confirm("Quit Math Mania?")) initMenu(); }
