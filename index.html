@@ -4,17 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>Math Garden</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Math Mania</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        body { touch-action: manipulation; -webkit-user-select: none; user-select: none; overflow: hidden; background: #f0fdf4; }
+        body { 
+            touch-action: manipulation; -webkit-user-select: none; user-select: none; overflow: hidden; 
+            background: #f0fdf4; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
         .bounce-in { animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
         @keyframes bounceIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         .pop-out:active { transform: scale(0.9); }
-        .formula-card { background: white; border: 6px solid #16a34a; border-radius: 2rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        
+        .formula-card { 
+            background: white; 
+            border: 6px solid #16a34a; 
+            border-radius: 2rem; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
+        }
+
         .crossed-out { position: relative; opacity: 0.3; filter: grayscale(100%); }
         .crossed-out::after { content: '❌'; position: absolute; top: 0; left: 0; font-size: 1.2em; text-shadow: 1px 1px 2px white; }
-        .group-box { border: 2px dashed #cbd5e1; padding: 4px; border-radius: 12px; display: flex; gap: 4px; align-items: center; justify-content: center; background: #f8fafc; }
+        
+        .group-box { 
+            border: 2px dashed #cbd5e1; 
+            padding: 4px; 
+            border-radius: 12px; 
+            display: flex; 
+            gap: 4px; 
+            align-items: center; 
+            justify-content: center; 
+            background: #f8fafc; 
+        }
+
+        /* Mode Card Styling */
+        .mode-card {
+            transition: all 0.2s ease;
+            border-bottom: 8px solid rgba(0,0,0,0.1);
+        }
+        .mode-card:hover { transform: translateY(-4px); }
     </style>
 </head>
 <body class="h-screen flex flex-col font-sans text-slate-800">
@@ -22,8 +51,8 @@
     <header class="p-4 flex flex-col items-center bg-white/50 shadow-sm">
         <div class="flex justify-between w-full items-center mb-2">
             <button onclick="confirmExit()" class="text-3xl bg-white rounded-full p-2 shadow-md pop-out">🏠</button>
-            <h1 class="text-2xl font-black text-green-600">Math Garden</h1>
-            <div id="score-display" class="bg-yellow-400 text-white px-4 py-1 rounded-full font-black">Score: 0</div>
+            <h1 class="text-3xl font-black text-green-600 tracking-tight">MATH MANIA</h1>
+            <div id="score-display" class="bg-yellow-400 text-white px-4 py-1 rounded-full font-black shadow-sm">Score: 0</div>
         </div>
         <div id="progress-container" class="flex gap-2"></div>
     </header>
@@ -37,12 +66,18 @@
         
         let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: 0, total: 10, results: [] };
 
-        function speak(t) { window.speechSynthesis.cancel(); const m = new SpeechSynthesisUtterance(t); m.lang = 'en-US'; m.rate = 0.85; window.speechSynthesis.speak(m); }
+        function speak(t) { 
+            window.speechSynthesis.cancel(); 
+            const m = new SpeechSynthesisUtterance(t); 
+            m.lang = 'en-US'; 
+            m.rate = 0.9; 
+            window.speechSynthesis.speak(m); 
+        }
 
         function createModeCard(m) {
             const card = document.createElement('div');
-            card.className = `${m.color} h-32 w-full max-w-[160px] rounded-3xl shadow-xl flex flex-col items-center justify-center cursor-pointer bounce-in pop-out border-b-8 border-black/10`;
-            card.innerHTML = `<span class="text-6xl text-white font-bold">${m.icon}</span><span class="text-white font-black uppercase text-xs mt-1">${m.label}</span>`;
+            card.className = `${m.color} mode-card h-32 w-full max-w-[160px] rounded-3xl shadow-xl flex flex-col items-center justify-center cursor-pointer bounce-in pop-out`;
+            card.innerHTML = `<span class="text-6xl text-white font-bold">${m.icon}</span><span class="text-white font-black uppercase text-xs mt-1 tracking-widest">${m.label}</span>`;
             card.onclick = () => { speak(m.label); gameState.mode = m; showLevels(); };
             return card;
         }
@@ -105,7 +140,7 @@
             
             if (m === 'count') {
                 v1 = Math.floor(Math.random() * gameState.maxNum) + 1; gameState.ans = v1;
-                formula = `How many?`; speech = `How many apples?`;
+                formula = `How many?`; speech = `How many items?`;
             } else if (m === 'add') {
                 v1 = Math.floor(Math.random() * (gameState.maxNum/2)) + 1; v2 = Math.floor(Math.random() * (gameState.maxNum/2)) + 1;
                 gameState.ans = v1 + v2; formula = `${v1} + ${v2} = ?`; speech = `${v1} plus ${v2}`;
@@ -179,14 +214,14 @@
             updateTracker();
             app.innerHTML = `<div class="text-center bounce-in">
                 <div class="text-8xl mb-4">🏆</div>
-                <h2 class="text-3xl font-black mb-2">FINISHED!</h2>
-                <p class="text-xl font-bold mb-6">Score: ${gameState.score} / 10</p>
+                <h2 class="text-3xl font-black mb-2">MANIA COMPLETE!</h2>
+                <p class="text-xl font-bold mb-6">Final Score: ${gameState.score} / 10</p>
                 <button onclick="initMenu()" class="bg-orange-500 text-white px-10 py-3 rounded-full text-xl font-black shadow-xl pop-out">PLAY AGAIN</button>
             </div>`;
-            speak(`Great job! You finished with a score of ${gameState.score}!`);
+            speak(`Great job! You finished Math Mania with a score of ${gameState.score}!`);
         }
 
-        function confirmExit() { if(confirm("Quit game?")) initMenu(); }
+        function confirmExit() { if(confirm("Quit Math Mania?")) initMenu(); }
         window.onload = initMenu;
     </script>
 </body>
