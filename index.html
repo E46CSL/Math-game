@@ -2,245 +2,284 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Math Mania</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        :root { --sat: env(safe-area-inset-top); --sab: env(safe-area-inset-bottom); }
         body { 
-            touch-action: manipulation; -webkit-user-select: none; user-select: none; overflow: hidden; 
+            touch-action: manipulation; -webkit-user-select: none; user-select: none; 
+            overflow: hidden; position: fixed; width: 100%; height: 100%;
             background: #f0fdf4; 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex; flex-direction: column;
         }
-        .bounce-in { animation: bounceIn 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
-        @keyframes bounceIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
-        .pop-out:active { transform: scale(0.9); }
         
-        .formula-card { 
-            background: white; 
-            border: 6px solid #16a34a; 
-            border-radius: 2rem; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); 
-            width: 98%;
-            max-width: 600px;
+        #app-wrapper { height: 100%; display: flex; flex-direction: column; padding-top: var(--sat); padding-bottom: var(--sab); }
+
+        .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
+        @keyframes bounceIn { 0% { transform: scale(0); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+        .pop-out:active { transform: scale(0.95); }
+        
+        .menu-card {
+            aspect-ratio: 1/1; width: 120px; border-radius: 24px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 10px 0 rgba(0,0,0,0.1); transition: transform 0.1s;
+        }
+
+        .formula-card, .feedback-card { 
+            background: white; border: 4px solid #16a34a; border-radius: 1.5rem; 
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08); width: 95%; max-width: 500px;
+            display: flex; flex-direction: column;
+        }
+
+        .visual-grid { 
+            display: grid; 
+            gap: 6px; 
+            justify-content: center; 
+            margin: 0 auto;
         }
 
         .crossed-out { position: relative; opacity: 0.3; filter: grayscale(100%); }
-        .crossed-out::after { content: '❌'; position: absolute; top: 0; left: 0; font-size: 1.2em; text-shadow: 1px 1px 2px white; }
-        
-        /* Grid container: 11 columns (1 for row numbers + 10 for items) */
-        .visual-grid {
-            display: grid;
-            grid-template-columns: 30px repeat(10, 1fr);
-            gap: 2px;
-            align-items: center;
-            width: 100%;
-        }
+        .crossed-out::after { content: '❌'; position: absolute; top: -2px; left: 0; font-size: 1rem; }
 
-        .grid-header {
-            font-weight: 900;
-            color: #94a3b8;
-            font-size: 0.75rem;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
+        #visual-container { flex-grow: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 15px; }
 
-        .mode-card {
-            transition: all 0.2s ease;
-            border-bottom: 8px solid rgba(0,0,0,0.1);
-        }
-        .mode-card:hover { transform: translateY(-4px); }
-
-        .level-btn {
-            background: white;
-            border: 6px solid;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        #settings-modal {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+            z-index: 100; align-items: center; justify-content: center;
         }
     </style>
 </head>
-<body class="h-screen flex flex-col font-sans text-slate-800">
+<body>
 
-    <header class="p-4 flex flex-col items-center bg-white/50 shadow-sm">
-        <div class="flex justify-between w-full items-center mb-2">
-            <button onclick="confirmExit()" class="text-3xl bg-white rounded-full px-4 py-1 shadow-md pop-out border-2 border-red-500 leading-none font-bold text-red-500">⬅</button>
-            <h1 class="text-3xl font-black text-green-600 tracking-tight uppercase">Math Mania</h1>
-            <div id="score-display" class="bg-yellow-400 text-white px-4 py-1 rounded-full font-black shadow-sm">Score: 0</div>
+    <div id="app-wrapper">
+        <!-- Settings Modal -->
+        <div id="settings-modal" onclick="toggleSettings()">
+            <div class="bg-white p-6 rounded-3xl w-[90%] max-w-sm shadow-2xl bounce-in" onclick="event.stopPropagation()">
+                <h2 class="text-2xl font-black mb-6 text-center text-slate-700 tracking-tight">Settings</h2>
+                
+                <!-- Index Toggle -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-slate-700 text-sm">Row/Col Index Display (Beginner mode)</span>
+                        <button onclick="toggleLabels()" class="w-12 h-7 bg-green-500 rounded-full relative transition-colors shrink-0" id="label-toggle-bg">
+                            <div id="label-toggle-knob" class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform translate-x-[20px]"></div>
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-slate-400 italic leading-tight">* This option only applies for Count - Beginner mode. (Default: ON)</p>
+                </div>
+
+                <!-- Icon Toggle -->
+                <div class="mb-8">
+                    <div class="flex items-center justify-between">
+                        <span class="font-bold text-slate-700 text-sm">Icon Display (Advanced / Expert mode)</span>
+                        <button onclick="toggleAdvIcons()" class="w-12 h-7 bg-slate-300 rounded-full relative transition-colors shrink-0" id="adv-toggle-bg">
+                            <div id="adv-toggle-knob" class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full transition-transform"></div>
+                        </button>
+                    </div>
+                </div>
+
+                <button onclick="toggleSettings()" class="w-full py-4 bg-green-500 text-white font-black rounded-2xl shadow-lg pop-out tracking-widest text-lg">SAVE</button>
+            </div>
         </div>
-        <div id="progress-container" class="flex gap-2"></div>
-    </header>
 
-    <main id="app" class="flex-grow flex flex-col items-center justify-center p-2 relative overflow-y-auto"></main>
+        <header class="p-3 flex flex-col items-center">
+            <div class="flex justify-between w-full items-center mb-1">
+                <div class="flex gap-2">
+                    <button onclick="confirmExit()" class="w-10 h-10 bg-white rounded-full shadow-md border-2 border-red-500 font-bold text-red-500 pop-out flex items-center justify-center">⬅</button>
+                    <button onclick="toggleSettings()" class="w-10 h-10 bg-white rounded-full shadow-md border-2 border-slate-300 pop-out flex items-center justify-center">⚙️</button>
+                </div>
+                <h1 class="text-xl font-black text-green-600 tracking-wider">MATH MANIA</h1>
+                <div id="score-display" class="bg-yellow-400 text-white px-4 py-1 rounded-full font-black text-sm">Score: 0</div>
+            </div>
+            <div id="progress-container" class="flex gap-1 h-3"></div>
+        </header>
+
+        <main id="app" class="flex-grow flex items-center justify-center p-3"></main>
+    </div>
 
     <script>
         const app = document.getElementById('app');
         const progressEl = document.getElementById('progress-container');
         const scoreEl = document.getElementById('score-display');
         
-        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: 0, total: 10, results: [] };
+        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: 0, total: 10, results: [], showLabels: true, showAdvIcons: false, questionPool: [], isPlaying: false };
 
-        function speak(t) { 
+        function toggleSettings() {
+            const modal = document.getElementById('settings-modal');
+            modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+            updateToggleUI();
+        }
+
+        function toggleLabels() { gameState.showLabels = !gameState.showLabels; updateToggleUI(); }
+        function toggleAdvIcons() { gameState.showAdvIcons = !gameState.showAdvIcons; updateToggleUI(); }
+
+        function updateToggleUI() {
+            document.getElementById('label-toggle-bg').className = gameState.showLabels ? "w-12 h-7 bg-green-500 rounded-full relative" : "w-12 h-7 bg-slate-300 rounded-full relative";
+            document.getElementById('label-toggle-knob').style.transform = gameState.showLabels ? "translateX(20px)" : "translateX(0px)";
+            document.getElementById('adv-toggle-bg').className = gameState.showAdvIcons ? "w-12 h-7 bg-green-500 rounded-full relative" : "w-12 h-7 bg-slate-300 rounded-full relative";
+            document.getElementById('adv-toggle-knob').style.transform = gameState.showAdvIcons ? "translateX(20px)" : "translateX(0px)";
+        }
+
+        function speak(textArray, onEndCallback = null) { 
             window.speechSynthesis.cancel(); 
-            const m = new SpeechSynthesisUtterance(t); 
-            m.lang = 'en-US'; 
-            m.rate = 0.9; 
-            window.speechSynthesis.speak(m); 
+            const utterance = new SpeechSynthesisUtterance(textArray.join(', '));
+            if (onEndCallback) utterance.onend = () => { if(gameState.isPlaying) setTimeout(onEndCallback, 300); };
+            window.speechSynthesis.speak(utterance);
         }
 
         function initMenu() {
-            gameState.round = 1; gameState.score = 0; gameState.results = [];
-            progressEl.innerHTML = '';
+            gameState.isPlaying = false; gameState.round = 1; gameState.score = 0; gameState.results = [];
+            scoreEl.innerText = `Score: 0`; progressEl.innerHTML = '';
             app.innerHTML = `
-                <div class="flex flex-col items-center gap-6 w-full max-w-md">
-                    <div id="row-1" class="flex justify-center w-full"></div>
-                    <div id="row-2" class="flex justify-center gap-6 w-full"></div>
-                    <div id="row-3" class="flex justify-center gap-6 w-full"></div>
+                <div class="flex flex-col items-center gap-4 w-full max-sm">
+                    <div onclick="setMode('count')" class="menu-card bg-red-400 pop-out bounce-in">
+                        <span class="text-5xl block">🍎</span>
+                        <span class="text-white font-black text-[10px] tracking-tighter mt-1">COUNT</span>
+                    </div>
+                    <div class="flex gap-4">
+                        <div onclick="setMode('add')" class="menu-card bg-green-400 pop-out bounce-in">
+                            <span class="text-5xl block font-bold text-white">＋</span>
+                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">ADD</span>
+                        </div>
+                        <div onclick="setMode('sub')" class="menu-card bg-orange-400 pop-out bounce-in">
+                            <span class="text-5xl block font-bold text-white">－</span>
+                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">MINUS</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div onclick="setMode('mul')" class="menu-card bg-purple-400 pop-out bounce-in">
+                            <span class="text-5xl block font-bold text-white">×</span>
+                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">TIMES</span>
+                        </div>
+                        <div onclick="setMode('div')" class="menu-card bg-pink-400 pop-out bounce-in">
+                            <span class="text-5xl block font-bold text-white">÷</span>
+                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">DIVIDE</span>
+                        </div>
+                    </div>
                 </div>`;
-            
-            const mdes = [
-                { id: 'count', label: 'Count', icon: '🍎', color: 'bg-red-400' },
-                { id: 'add', label: 'Add', icon: '＋', color: 'bg-green-400' },
-                { id: 'sub', label: 'Minus', icon: '－', color: 'bg-orange-400' },
-                { id: 'mul', label: 'Times', icon: '×', color: 'bg-purple-400' },
-                { id: 'div', label: 'Divide', icon: '÷', color: 'bg-pink-400' }
-            ];
+        }
 
-            const rows = ['row-1', 'row-2', 'row-2', 'row-3', 'row-3'];
-            mdes.forEach((m, i) => {
-                const card = document.createElement('div');
-                card.className = `${m.color} mode-card h-32 w-full max-w-[160px] rounded-3xl shadow-xl flex flex-col items-center justify-center cursor-pointer bounce-in pop-out`;
-                card.innerHTML = `<span class="text-6xl text-white font-bold">${m.icon}</span><span class="text-white font-black uppercase text-xs mt-1 tracking-widest">${m.label}</span>`;
-                card.onclick = () => { speak(m.label); gameState.mode = m; showLevels(); };
-                document.getElementById(rows[i]).appendChild(card);
-            });
+        function setMode(id) { 
+            const labels = {count:'Count', add:'Add', sub:'Minus', mul:'Times', div:'Divide'};
+            gameState.mode = {id, label: labels[id]};
+            speak([labels[id]]);
+            showLevels(); 
         }
 
         function showLevels() {
-            const levels = [
-                { num: 10, stars: '⭐', label: 'Beginner', color: 'border-yellow-300', text: 'yellow-600' },
-                { num: 20, stars: '⭐⭐', label: 'Intermediate', color: 'border-orange-400', text: 'orange-600' },
-                { num: 50, stars: '⭐⭐⭐', label: 'Advanced', color: 'border-red-500', text: 'red-600' },
-                { num: 100, stars: '⭐⭐⭐⭐', label: 'Expert', color: 'border-purple-600', text: 'purple-700' }
+            const lvls = [
+                {n:10, s:'⭐', l:'Beginner', c:'border-yellow-300'},
+                {n:20, s:'⭐⭐', l:'Intermediate', c:'border-orange-400'},
+                {n:50, s:'⭐⭐⭐', l:'Advanced', c:'border-red-500'},
+                {n:100, s:'⭐⭐⭐⭐', l:'Expert', c:'border-purple-600'}
             ];
-            app.innerHTML = `<div class="grid grid-cols-2 gap-4 w-full max-w-lg">${levels.map(l => `
-                <div onclick="start(${l.num})" class="level-btn ${l.color} h-40 rounded-3xl bounce-in pop-out">
-                    <span class="text-3xl">${l.stars}</span>
-                    <span class="text-2xl font-black ${l.text}">${l.label}</span>
-                    <span class="text-slate-400 font-bold">Within ${l.num}</span>
-                </div>`).join('')}</div>`;
+            app.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full max-w-xs">${lvls.map(l => `<div onclick="start(${l.n})" class="bg-white border-4 ${l.c} p-4 rounded-3xl text-center shadow-md pop-out bounce-in"><span class="text-xl block">${l.s}</span><span class="font-black text-slate-700 text-sm">${l.l}</span></div>`).join('')}</div>`;
         }
 
-        function start(max) { gameState.maxNum = max; nextRound(); }
+        function start(max) { gameState.maxNum = max; gameState.isPlaying = true; generatePool(); nextRound(); }
+
+        function generatePool() {
+            let p = [], m = gameState.mode.id, x = gameState.maxNum;
+            if(m==='count') for(let i=1;i<=x;i++) p.push({v1:i, v2:0, ans:i});
+            else if(m==='add') for(let i=1;i<x;i++) for(let j=1;i+j<=x;j++) p.push({v1:i, v2:j, ans:i+j});
+            else if(m==='sub') for(let i=1;i<=x;i++) for(let j=1;j<=i;j++) p.push({v1:i, v2:j, ans:i-j});
+            else if(m==='mul') for(let i=1;i<=10;i++) for(let j=1;i*j<=x;j++) p.push({v1:i, v2:j, ans:i*j});
+            else if(m==='div') for(let j=2;j<=5;j++) for(let a=1;a*j<=x;a++) p.push({v1:a*j, v2:j, ans:a});
+            gameState.questionPool = p.sort(()=>Math.random()-0.5).slice(0,10);
+        }
 
         function nextRound() {
-            if (gameState.round > gameState.total) { showEnd(); return; }
+            if(!gameState.isPlaying) return;
+            if(gameState.round > 10) { showEnd(); return; }
             updateTracker();
-            let v1, v2, formula, speech, m = gameState.mode.id;
+            const q = gameState.questionPool[gameState.round-1];
+            gameState.ans = q.ans;
+            let m = gameState.mode.id, symbol = {add:'+', sub:'-', mul:'×', div:'÷'}[m];
+            let formula = m==='count' ? 'Count them!' : `${q.v1} ${symbol} ${q.v2} = ?`;
             
-            if (m === 'count') { v1 = Math.floor(Math.random() * gameState.maxNum) + 1; gameState.ans = v1; formula = `How many?`; speech = `How many?`; }
-            else if (m === 'add') { v1 = Math.floor(Math.random() * (gameState.maxNum - 1)) + 1; v2 = Math.floor(Math.random() * (gameState.maxNum - v1)) + 1; gameState.ans = v1 + v2; formula = `${v1} + ${v2} = ?`; speech = `${v1} plus ${v2}`; }
-            else if (m === 'sub') { v1 = Math.floor(Math.random() * (gameState.maxNum - 2)) + 2; v2 = Math.floor(Math.random() * v1) + 1; gameState.ans = v1 - v2; formula = `${v1} - ${v2} = ?`; speech = `${v1} minus ${v2}`; }
-            else if (m === 'mul') { v1 = Math.min(Math.floor(Math.random() * 10) + 1, gameState.maxNum / 2); v2 = 2; gameState.ans = v1 * v2; formula = `${v1} × ${v2} = ?`; speech = `${v1} times ${v2}`; }
-            else if (m === 'div') { gameState.ans = Math.floor(Math.random() * (gameState.maxNum / 2)) + 1; v2 = 2; v1 = gameState.ans * v2; formula = `${v1} ÷ ${v2} = ?`; speech = `${v1} share into ${v2}`; }
-
             app.innerHTML = `
-                <div class="formula-card p-4 text-center bounce-in">
-                    <div class="text-4xl font-black text-green-700 mb-4">${formula}</div>
-                    <div class="flex justify-center items-center p-2 border rounded-xl bg-slate-50 overflow-x-auto">
-                        <div class="visual-grid">${renderVisualGrid(v1, v2, m)}</div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-4 mt-6">${genOpts(gameState.ans)}</div>
+                <div class="formula-card p-3 bounce-in text-center">
+                    <div class="text-xs font-bold text-slate-400 mb-1">Question ${gameState.round}</div>
+                    <div class="text-3xl font-black text-green-700 mb-2">${formula}</div>
+                    <div id="visual-container"></div>
+                    <div class="grid grid-cols-2 gap-3 mt-2">${genOpts(q.ans)}</div>
                 </div>`;
-            speak(speech);
+            renderVisuals(q.v1, q.v2, m);
+            speak([`Question ${gameState.round}`, formula]);
         }
 
-        function renderVisualGrid(v1, v2, m) {
+        function renderVisuals(v1, v2, m) {
+            const container = document.getElementById('visual-container');
+            if(m!=='count' && gameState.maxNum >= 50 && !gameState.showAdvIcons) {
+                container.innerHTML = `<div class="text-slate-300 text-xs italic">Icons hidden for Expert mode</div>`;
+                return;
+            }
             let h = '';
-            let total = (m === 'add') ? (v1 + v2) : v1;
-            let rowsNeeded = Math.ceil(total / 10);
-            let sizeClass = total > 50 ? "text-xl" : "text-2xl";
-
-            // 1. Top Header Row (Column Numbers 1-10)
-            h += `<div class="grid-header">#</div>`; // Top-left corner spacer
-            for (let c = 1; c <= 10; c++) h += `<div class="grid-header">${c}</div>`;
-
-            // 2. Data Rows
-            let itemCounter = 0;
-            for (let r = 1; r <= rowsNeeded; r++) {
-                // Row Label
-                h += `<div class="grid-header border-r border-slate-200">${r}</div>`;
-                
-                // Row Items
-                for (let c = 1; c <= 10; c++) {
-                    itemCounter++;
-                    if (itemCounter <= total) {
-                        let icon = '🍎';
-                        if (m === 'add') icon = (itemCounter <= v1) ? '🍪' : '🍓';
-                        if (m === 'sub') icon = '🎈';
-                        if (m === 'mul') icon = '🐝';
-                        if (m === 'div') icon = '🍕';
-                        
-                        let isCrossed = (m === 'sub' && itemCounter > (v1 - v2)) ? 'crossed-out' : '';
-                        h += `<div class="${sizeClass} ${isCrossed} flex justify-center">${icon}</div>`;
-                    } else {
-                        h += `<div></div>`; // Empty cell
-                    }
+            if(m==='mul' || m==='div') {
+                container.className = "flex flex-wrap justify-center gap-2 overflow-y-auto";
+                let groups = (m==='mul')?v1:v2, per = (m==='mul')?v2:gameState.ans;
+                for(let g=0; g<groups; g++) {
+                    h += `<div class="bg-slate-50 border border-dashed border-slate-300 rounded-lg p-1 flex flex-wrap justify-center gap-1">`;
+                    for(let i=0; i<per; i++) h += `<span class="text-lg">${m==='mul'?'🐝':'🍕'}</span>`;
+                    h += `</div>`;
+                }
+            } else {
+                let total = (m==='add') ? (v1+v2) : v1;
+                container.className = "visual-grid overflow-y-auto";
+                const cols = Math.min(total, 10);
+                container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+                container.style.width = "fit-content";
+                for(let i=1; i<=total; i++) {
+                    let icon = m==='add' ? (i<=v1?'🍪':'🍓') : (m==='sub'?'🎈':'🍎');
+                    let cross = (m==='sub' && i>(v1-v2)) ? 'crossed-out' : '';
+                    h += `<div class="text-2xl ${cross} flex justify-center items-center">${icon}</div>`;
                 }
             }
-            return h;
+            container.innerHTML = h;
         }
 
         function genOpts(correct) {
             let o = [correct];
             while(o.length < 4) {
-                let offset = gameState.maxNum > 50 ? 10 : 5;
-                let w = Math.max(0, correct + (Math.floor(Math.random() * (offset * 2)) - offset));
+                let w = Math.max(0, correct + (Math.floor(Math.random()*10)-5));
                 if(!o.includes(w)) o.push(w);
             }
-            return o.sort(()=>Math.random()-0.5).map(v => `<button onclick="check(${v})" class="bg-green-500 text-white text-3xl font-black py-4 rounded-2xl shadow-lg border-b-8 border-green-700 pop-out">${v}</button>`).join('');
+            return o.sort(()=>Math.random()-0.5).map(v => `<button onclick="check(this, ${v})" class="bg-green-500 text-white text-2xl font-black py-3 rounded-xl shadow-md border-b-4 border-green-700 pop-out">${v}</button>`).join('');
         }
 
-        function check(v) {
+        function check(btn, v) {
             const correct = (v === gameState.ans);
             gameState.results.push(correct);
-            if(correct) { gameState.score++; speak("Correct!"); app.innerHTML = `<div class="text-9xl bounce-in">👍</div>`; }
-            else { speak(`Oops! It was ${gameState.ans}`); app.innerHTML = `<div class="text-9xl bounce-in">😢</div>`; }
-            gameState.round++;
-            setTimeout(nextRound, 1500);
+            if(correct) { 
+                gameState.score++; 
+                app.innerHTML = `<div class="feedback-card p-8 flex flex-col items-center justify-center bounce-in"><div class="text-8xl">👍</div></div>`; 
+                speak(["Correct!"], () => { gameState.round++; nextRound(); }); 
+            } else { 
+                app.innerHTML = `
+                    <div class="feedback-card p-8 flex flex-col items-center justify-center bounce-in">
+                        <div class="text-7xl">😢</div>
+                        <div class="mt-4 text-slate-500 font-bold text-xl">Correct answer is</div>
+                        <div class="text-7xl font-black text-red-600">${gameState.ans}</div>
+                    </div>`; 
+                speak([`Incorrect. Correct answer is ${gameState.ans}`], () => { gameState.round++; nextRound(); }); 
+            }
         }
 
         function updateTracker() {
             progressEl.innerHTML = '';
-            for(let i=0; i<gameState.total; i++) {
-                const dot = document.createElement('div');
-                let color = 'bg-gray-300';
-                if (gameState.results[i] === true) color = 'bg-green-500';
-                if (gameState.results[i] === false) color = 'bg-red-500';
-                if (i === gameState.round - 1 && gameState.results[i] === undefined) color = 'bg-yellow-400 border-2 border-yellow-600';
-                dot.className = `w-4 h-4 rounded-full ${color}`;
-                progressEl.appendChild(dot);
+            for(let i=0; i<10; i++) {
+                let color = gameState.results[i]===true ? 'bg-green-500' : (gameState.results[i]===false ? 'bg-red-500' : (i===gameState.round-1 ? 'bg-yellow-400' : 'bg-slate-200'));
+                progressEl.innerHTML += `<div class="w-3 h-3 rounded-full ${color}"></div>`;
             }
             scoreEl.innerText = `Score: ${gameState.score}`;
         }
 
-        function showEnd() {
-            updateTracker();
-            app.innerHTML = `<div class="text-center bounce-in">
-                <div class="text-8xl mb-4">🏆</div>
-                <h2 class="text-3xl font-black mb-2 uppercase">Complete!</h2>
-                <p class="text-xl font-bold mb-6">Score: ${gameState.score} / 10</p>
-                <button onclick="initMenu()" class="bg-orange-500 text-white px-10 py-3 rounded-full text-xl font-black shadow-xl pop-out">PLAY AGAIN</button>
-            </div>`;
-        }
-
-        function confirmExit() { if(confirm("Quit?")) initMenu(); }
+        function showEnd() { updateTracker(); speak(["Game Over!", `You scored ${gameState.score}`]); app.innerHTML = `<div class="text-center bounce-in"><div class="text-7xl mb-2">🏆</div><h2 class="text-2xl font-black">Score: ${gameState.score}/10</h2><button onclick="initMenu()" class="mt-4 bg-orange-500 text-white px-8 py-3 rounded-full font-black pop-out">REPLAY</button></div>`; }
+        function confirmExit() { if(!gameState.isPlaying || confirm("Quit?")) initMenu(); }
         window.onload = initMenu;
     </script>
 </body>
