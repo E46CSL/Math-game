@@ -32,20 +32,25 @@
         .formula-card, .feedback-card { 
             background: white; border: 4px solid #16a34a; border-radius: 1.5rem; 
             box-shadow: 0 8px 20px rgba(0,0,0,0.08); width: 95%; max-width: 500px;
-            display: flex; flex-direction: column;
+            display: flex; flex-direction: column; overflow: hidden;
         }
 
+        /* Fixed 10-column grid for visuals */
         .visual-grid { 
             display: grid; 
-            gap: 6px; 
+            grid-template-columns: repeat(10, 1fr);
+            gap: 4px; 
             justify-content: center; 
             margin: 0 auto;
+            padding: 10px;
         }
+
+        .index-label { font-size: 0.65rem; color: #94a3b8; font-weight: bold; }
 
         .crossed-out { position: relative; opacity: 0.3; filter: grayscale(100%); }
         .crossed-out::after { content: '❌'; position: absolute; top: -2px; left: 0; font-size: 1rem; }
 
-        #visual-container { flex-grow: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 15px; }
+        #visual-container { flex-grow: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow-y: auto; padding: 10px; }
 
         #settings-modal {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
@@ -56,12 +61,10 @@
 <body>
 
     <div id="app-wrapper">
-        <!-- Settings Modal -->
         <div id="settings-modal" onclick="toggleSettings()">
             <div class="bg-white p-6 rounded-3xl w-[90%] max-w-sm shadow-2xl bounce-in" onclick="event.stopPropagation()">
                 <h2 class="text-2xl font-black mb-6 text-center text-slate-700 tracking-tight">Settings</h2>
                 
-                <!-- Index Toggle -->
                 <div class="mb-6">
                     <div class="flex items-center justify-between mb-1">
                         <span class="font-bold text-slate-700 text-sm">Row/Col Index Display (Beginner mode)</span>
@@ -72,7 +75,6 @@
                     <p class="text-[10px] text-slate-400 italic leading-tight">* This option only applies for Count - Beginner mode. (Default: ON)</p>
                 </div>
 
-                <!-- Icon Toggle -->
                 <div class="mb-8">
                     <div class="flex items-center justify-between">
                         <span class="font-bold text-slate-700 text-sm">Icon Display (Advanced / Expert mode)</span>
@@ -106,7 +108,7 @@
         const progressEl = document.getElementById('progress-container');
         const scoreEl = document.getElementById('score-display');
         
-        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: 0, total: 10, results: [], showLabels: true, showAdvIcons: false, questionPool: [], isPlaying: false };
+        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: 0, results: [], showLabels: true, showAdvIcons: false, questionPool: [], isPlaying: false };
 
         function toggleSettings() {
             const modal = document.getElementById('settings-modal');
@@ -138,27 +140,15 @@
                 <div class="flex flex-col items-center gap-4 w-full max-sm">
                     <div onclick="setMode('count')" class="menu-card bg-red-400 pop-out bounce-in">
                         <span class="text-5xl block">🍎</span>
-                        <span class="text-white font-black text-[10px] tracking-tighter mt-1">COUNT</span>
+                        <span class="text-white font-black text-[10px] mt-1">COUNT</span>
                     </div>
                     <div class="flex gap-4">
-                        <div onclick="setMode('add')" class="menu-card bg-green-400 pop-out bounce-in">
-                            <span class="text-5xl block font-bold text-white">＋</span>
-                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">ADD</span>
-                        </div>
-                        <div onclick="setMode('sub')" class="menu-card bg-orange-400 pop-out bounce-in">
-                            <span class="text-5xl block font-bold text-white">－</span>
-                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">MINUS</span>
-                        </div>
+                        <div onclick="setMode('add')" class="menu-card bg-green-400 pop-out bounce-in"><span class="text-5xl text-white">＋</span><span class="text-white font-black text-[10px] mt-1">ADD</span></div>
+                        <div onclick="setMode('sub')" class="menu-card bg-orange-400 pop-out bounce-in"><span class="text-5xl text-white">－</span><span class="text-white font-black text-[10px] mt-1">MINUS</span></div>
                     </div>
                     <div class="flex gap-4">
-                        <div onclick="setMode('mul')" class="menu-card bg-purple-400 pop-out bounce-in">
-                            <span class="text-5xl block font-bold text-white">×</span>
-                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">TIMES</span>
-                        </div>
-                        <div onclick="setMode('div')" class="menu-card bg-pink-400 pop-out bounce-in">
-                            <span class="text-5xl block font-bold text-white">÷</span>
-                            <span class="text-white font-black text-[10px] tracking-tighter mt-1">DIVIDE</span>
-                        </div>
+                        <div onclick="setMode('mul')" class="menu-card bg-purple-400 pop-out bounce-in"><span class="text-5xl text-white">×</span><span class="text-white font-black text-[10px] mt-1">TIMES</span></div>
+                        <div onclick="setMode('div')" class="menu-card bg-pink-400 pop-out bounce-in"><span class="text-5xl text-white">÷</span><span class="text-white font-black text-[10px] mt-1">DIVIDE</span></div>
                     </div>
                 </div>`;
         }
@@ -214,10 +204,13 @@
 
         function renderVisuals(v1, v2, m) {
             const container = document.getElementById('visual-container');
+            const isBeginnerCount = (m === 'count' && gameState.maxNum === 10);
+            
             if(m!=='count' && gameState.maxNum >= 50 && !gameState.showAdvIcons) {
-                container.innerHTML = `<div class="text-slate-300 text-xs italic">Icons hidden for Expert mode</div>`;
+                container.innerHTML = `<div class="text-slate-300 text-xs italic">Icons hidden for Advanced/Expert mode</div>`;
                 return;
             }
+
             let h = '';
             if(m==='mul' || m==='div') {
                 container.className = "flex flex-wrap justify-center gap-2 overflow-y-auto";
@@ -229,15 +222,22 @@
                 }
             } else {
                 let total = (m==='add') ? (v1+v2) : v1;
-                container.className = "visual-grid overflow-y-auto";
-                const cols = Math.min(total, 10);
-                container.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-                container.style.width = "fit-content";
+                container.className = "flex flex-col items-center justify-center";
+                
+                let gridHTML = `<div class="visual-grid" style="grid-template-columns: repeat(10, 1fr);">`;
                 for(let i=1; i<=total; i++) {
                     let icon = m==='add' ? (i<=v1?'🍪':'🍓') : (m==='sub'?'🎈':'🍎');
                     let cross = (m==='sub' && i>(v1-v2)) ? 'crossed-out' : '';
-                    h += `<div class="text-2xl ${cross} flex justify-center items-center">${icon}</div>`;
+                    
+                    gridHTML += `<div class="flex flex-col items-center justify-center">`;
+                    // Row/Col Index Labels for Count-Beginner
+                    if(isBeginnerCount && gameState.showLabels) {
+                        gridHTML += `<span class="index-label">${i}</span>`;
+                    }
+                    gridHTML += `<div class="text-2xl ${cross}">${icon}</div></div>`;
                 }
+                gridHTML += `</div>`;
+                h = gridHTML;
             }
             container.innerHTML = h;
         }
