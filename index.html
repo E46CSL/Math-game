@@ -318,6 +318,25 @@
             return `${h}:${mm}`;
         }
 
+        function handleHourInput(el) {
+            if (el.value.length > 2) {
+                el.value = el.value.slice(0, 2);
+            }
+            if (el.value.length === 2) {
+                const minEl = document.getElementById('manual-min');
+                if (minEl) {
+                    minEl.focus();
+                    minEl.select();
+                }
+            }
+        }
+
+        function handleMinInput(el) {
+            if (el.value.length > 2) {
+                el.value = el.value.slice(0, 2);
+            }
+        }
+
         function nextRound() {
             if(!gameState.isPlaying) return;
             if(gameState.round > 10) { showEnd(); return; }
@@ -338,12 +357,20 @@
             let inputArea = '';
             if(gameState.isMultipleChoice) {
                 inputArea = `<div class="grid grid-cols-2 gap-3 mt-2 p-2">${genOpts(q.ans, m)}</div>`;
+            } else if(m === 'clock') {
+                inputArea = `
+                    <form onsubmit="handleManualSubmit(event)" class="flex flex-col gap-3 mt-2 p-2">
+                        <div class="flex items-center justify-center gap-2">
+                            <input type="number" id="manual-hour" min="1" max="12" placeholder="HH" class="w-20 text-center text-3xl font-black py-2 border-2 border-green-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600" oninput="handleHourInput(this)" autofocus required />
+                            <span class="text-3xl font-black text-slate-700">:</span>
+                            <input type="number" id="manual-min" min="0" max="59" placeholder="MM" class="w-20 text-center text-3xl font-black py-2 border-2 border-green-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600" oninput="handleMinInput(this)" required />
+                        </div>
+                        <button type="submit" class="w-full bg-green-500 text-white text-xl font-black py-3 rounded-xl shadow-md border-b-4 border-green-700 pop-out">SUBMIT</button>
+                    </form>`;
             } else {
-                let inputType = m==='clock' ? 'text' : 'number';
-                let placeholder = m==='clock' ? 'e.g. 3:30' : 'Type answer...';
                 inputArea = `
                     <form onsubmit="handleManualSubmit(event)" class="flex flex-col gap-2 mt-2 p-2">
-                        <input type="${inputType}" id="manual-input" placeholder="${placeholder}" class="w-full text-center text-2xl font-bold py-2 border-2 border-green-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600" autofocus required />
+                        <input type="number" id="manual-input" placeholder="Type answer..." class="w-full text-center text-2xl font-bold py-2 border-2 border-green-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-600" autofocus required />
                         <button type="submit" class="w-full bg-green-500 text-white text-xl font-black py-3 rounded-xl shadow-md border-b-4 border-green-700 pop-out">SUBMIT</button>
                     </form>`;
             }
@@ -369,8 +396,8 @@
             
             if(!gameState.isMultipleChoice) {
                 setTimeout(() => {
-                    const inputField = document.getElementById('manual-input');
-                    if(inputField) inputField.focus();
+                    const firstInput = document.getElementById(m === 'clock' ? 'manual-hour' : 'manual-input');
+                    if(firstInput) firstInput.focus();
                 }, 100);
             }
         }
@@ -460,9 +487,20 @@
 
         function handleManualSubmit(e) {
             e.preventDefault();
-            const inputField = document.getElementById('manual-input');
-            if(!inputField || inputField.value.trim() === '') return;
-            const userVal = inputField.value.trim();
+            let userVal = '';
+            if(gameState.mode.id === 'clock') {
+                const hourEl = document.getElementById('manual-hour');
+                const minEl = document.getElementById('manual-min');
+                if(!hourEl || !minEl || hourEl.value.trim() === '' || minEl.value.trim() === '') return;
+                
+                let h = parseInt(hourEl.value.trim(), 10);
+                let m = parseInt(minEl.value.trim(), 10);
+                userVal = formatTime(h, m);
+            } else {
+                const inputField = document.getElementById('manual-input');
+                if(!inputField || inputField.value.trim() === '') return;
+                userVal = inputField.value.trim();
+            }
             check(null, userVal);
         }
 
