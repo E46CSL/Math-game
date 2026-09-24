@@ -60,6 +60,34 @@
             width: 100%;
         }
 
+        .drop-slot {
+            width: 4rem; height: 3.5rem;
+            border: 3px dashed #16a34a;
+            border-radius: 1rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.5rem;
+            color: #15803d;
+            background: #f0fdf4;
+            transition: all 0.2s ease;
+        }
+        .drop-slot.drag-over {
+            background: #dcfce7;
+            border-color: #22c55e;
+            transform: scale(1.05);
+        }
+
+        .drag-chip {
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .drag-chip:active {
+            cursor: grabbing;
+        }
+
         #settings-modal, #info-modal {
             display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6);
             z-index: 100; align-items: center; justify-content: center;
@@ -145,7 +173,7 @@
         const progressEl = document.getElementById('progress-container');
         scoreEl = document.getElementById('score-display');
         
-        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: '', results: [], showLabels: true, showAdvIcons: false, isMultipleChoice: true, questionPool: [], isPlaying: false };
+        let gameState = { mode: null, maxNum: 10, round: 1, score: 0, ans: '', results: [], showLabels: true, showAdvIcons: false, isMultipleChoice: true, questionPool: [], isPlaying: false, activeSlot: 'slot1' };
 
         function toggleSettings() {
             const modal = document.getElementById('settings-modal');
@@ -211,14 +239,39 @@
         }
 
         function showLevels() {
-            const lvls = [
-                {n:10, s:'⭐', l:'Beginner', c:'border-yellow-300'},
-                {n:20, s:'⭐⭐', l:'Intermediate', c:'border-orange-400'},
-                {n:50, s:'⭐⭐⭐', l:'Advanced', c:'border-red-500'},
-                {n:100, s:'⭐⭐⭐⭐', l:'Expert', c:'border-purple-600'}
+            let modeId = gameState.mode.id;
+            let expertMax = (modeId === 'mul' || modeId === 'div') ? 200 : 100;
+            let advMax = (modeId === 'mul' || modeId === 'div') ? 100 : 50;
+            
+            let rangeLabels = {
+                10: '1–10',
+                20: '1–20',
+                50: '1–50',
+                100: '1–100',
+                200: '1–200'
+            };
+
+            if (modeId === 'clock') {
+                rangeLabels = {
+                    10: 'On/Half hour',
+                    20: '15-min intervals',
+                    50: '5-min intervals',
+                    100: 'Every minute'
+                };
+            }
+
+            let lvls = [
+                {n:10, s:'⭐', l:'Beginner', r: rangeLabels[10], c:'border-yellow-300'},
+                {n:20, s:'⭐⭐', l:'Intermediate', r: rangeLabels[20], c:'border-orange-400'},
+                {n:advMax, s:'⭐⭐⭐', l:'Advanced', r: rangeLabels[advMax], c:'border-red-500'},
+                {n:expertMax, s:'⭐⭐⭐⭐', l:'Expert', r: rangeLabels[expertMax], c:'border-purple-600'}
             ];
 
-            app.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full max-w-xs">${lvls.map(l => `<div onclick="start(${l.n})" class="bg-white border-4 ${l.c} p-4 rounded-3xl text-center shadow-md pop-out bounce-in flex flex-col items-center justify-center"><span class="text-xl block">${l.s}</span><span class="font-black text-slate-700 text-sm">${l.l}</span></div>`).join('')}</div>`;
+            if(modeId === 'add' || modeId === 'sub') {
+                lvls.push({n:200, s:'⭐⭐⭐⭐⭐', l:'Master', r: rangeLabels[200], c:'border-emerald-600'});
+            }
+
+            app.innerHTML = `<div class="grid grid-cols-2 gap-3 w-full max-w-xs">${lvls.map(l => `<div onclick="start(${l.n})" class="bg-white border-4 ${l.c} p-3 rounded-3xl text-center shadow-md pop-out bounce-in flex flex-col items-center justify-center"><span class="text-base sm:text-lg block mb-0.5">${l.s}</span><span class="font-black text-slate-700 text-xs sm:text-sm leading-tight">${l.l}</span><span class="text-[10px] sm:text-xs font-bold text-slate-400 mt-1 bg-slate-100 px-2.5 py-0.5 rounded-full">${l.r}</span></div>`).join('')}</div>`;
         }
 
         function start(max) { gameState.maxNum = max; gameState.isPlaying = true; generatePool(); nextRound(); }
@@ -291,13 +344,58 @@
                     }
                 }
             } else if(m==='add') {
-                for(let i=1;i<x;i++) for(let j=1;i+j<=x;j++) p.push({v1:i, v2:j, ans:i+j});
+                if(x === 200) {
+                    for(let k=0; k<15; k++) {
+                        let minSum = 22;
+                        let maxSum = 500;
+                        let target = Math.floor(Math.random() * (maxSum - minSum + 1)) + minSum;
+                        
+                        let minA = 11;
+                        let maxA = target - 11;
+                        let n1 = Math.floor(Math.random() * (maxA - minA + 1)) + minA;
+                        let n2 = target - n1;
+                        
+                        let candidates = [n1, n2];
+                        while(candidates.length < 10) {
+                            let fake = Math.floor(Math.random() * 489) + 11;
+                            if(!candidates.includes(fake)) candidates.push(fake);
+                        }
+                        candidates.sort(() => Math.random() - 0.5);
+
+                        p.push({ target, candidates, n1, n2, ans: target });
+                    }
+                } else {
+                    for(let i=1;i<x;i++) for(let j=1;i+j<=x;j++) p.push({v1:i, v2:j, ans:i+j});
+                }
             } else if(m==='sub') {
-                for(let i=1;i<=x;i++) for(let j=1;j<=i;j++) p.push({v1:i, v2:j, ans:i-j});
+                if(x === 200) {
+                    for(let k=0; k<15; k++) {
+                        let minDiff = 10;
+                        let maxDiff = 400;
+                        let target = Math.floor(Math.random() * (maxDiff - minDiff + 1)) + minDiff;
+                        
+                        let minB = 11;
+                        let maxB = 99;
+                        let n2 = Math.floor(Math.random() * (maxB - minB + 1)) + minB;
+                        let n1 = target + n2;
+                        
+                        let candidates = [n1, n2];
+                        while(candidates.length < 10) {
+                            let fake = Math.floor(Math.random() * 489) + 11;
+                            if(!candidates.includes(fake)) candidates.push(fake);
+                        }
+                        candidates.sort(() => Math.random() - 0.5);
+
+                        p.push({ target, candidates, n1, n2, ans: target });
+                    }
+                } else {
+                    for(let i=1;i<=x;i++) for(let j=1;j<=i;j++) p.push({v1:i, v2:j, ans:i-j});
+                }
             } else if(m==='mul') {
-                for(let i=1;i<=10;i++) for(let j=1;i*j<=x;j++) p.push({v1:i, v2:j, ans:i*j});
+                let maxFactor = x >= 200 ? 20 : (x >= 100 ? 10 : 10);
+                for(let i=1;i<=maxFactor;i++) for(let j=1;i*j<=x;j++) p.push({v1:i, v2:j, ans:i*j});
             } else if(m==='div') {
-                let maxDivisor = x >= 50 ? 10 : 5;
+                let maxDivisor = x >= 200 ? 20 : (x >= 100 ? 10 : (x >= 50 ? 10 : 5));
                 for(let j=2; j<=maxDivisor; j++) {
                     for(let a=1; a*j<=x; a++) {
                         p.push({v1:a*j, v2:j, ans:a});
@@ -319,22 +417,15 @@
         }
 
         function handleHourInput(el) {
-            if (el.value.length > 2) {
-                el.value = el.value.slice(0, 2);
-            }
+            if (el.value.length > 2) el.value = el.value.slice(0, 2);
             if (el.value.length === 2) {
                 const minEl = document.getElementById('manual-min');
-                if (minEl) {
-                    minEl.focus();
-                    minEl.select();
-                }
+                if (minEl) { minEl.focus(); minEl.select(); }
             }
         }
 
         function handleMinInput(el) {
-            if (el.value.length > 2) {
-                el.value = el.value.slice(0, 2);
-            }
+            if (el.value.length > 2) el.value = el.value.slice(0, 2);
         }
 
         function nextRound() {
@@ -345,6 +436,16 @@
             gameState.ans = q.ans;
             let m = gameState.mode.id;
             
+            if (m === 'add' && gameState.maxNum === 200) {
+                renderAdd5StarRound(q);
+                return;
+            }
+
+            if (m === 'sub' && gameState.maxNum === 200) {
+                renderSub5StarRound(q);
+                return;
+            }
+
             let formula = '';
             if(m === 'count') formula = 'Count them!';
             else if(m === 'pattern') formula = 'What comes next?';
@@ -400,6 +501,130 @@
                     if(firstInput) firstInput.focus();
                 }, 100);
             }
+        }
+
+        function renderAdd5StarRound(q) {
+            gameState.activeSlot = 'slot1';
+            
+            app.innerHTML = `
+                <div class="formula-card p-3 bounce-in text-center">
+                    <div class="text-xs font-bold text-slate-400 mb-1">Question ${gameState.round}</div>
+                    <div class="text-xl font-black text-green-700 mb-3">Find two numbers that sum up to target!</div>
+                    
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <div id="slot1" onclick="setActiveSlot('slot1')" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="handleDrop(event, 'slot1')" class="drop-slot ring-4 ring-green-400">?</div>
+                        <span class="text-2xl font-black text-slate-700">+</span>
+                        <div id="slot2" onclick="setActiveSlot('slot2')" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="handleDrop(event, 'slot2')" class="drop-slot">?</div>
+                        <span class="text-2xl font-black text-slate-700">=</span>
+                        <div class="min-w-16 px-3 h-14 bg-green-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-md">${q.target}</div>
+                    </div>
+
+                    <div class="text-xs text-slate-400 font-bold mb-2">Drag & drop or tap a candidate number:</div>
+                    <div class="grid grid-cols-5 gap-2 px-1 mb-4">
+                        ${q.candidates.map(val => `<div draggable="true" ondragstart="handleDragStart(event, ${val})" onclick="selectCandidate(${val})" class="drag-chip bg-amber-400 hover:bg-amber-500 text-white font-black text-lg py-2 rounded-xl shadow-md border-b-4 border-amber-600 pop-out flex items-center justify-center">${val}</div>`).join('')}
+                    </div>
+
+                    <button onclick="submitAdd5Star(${q.target})" class="w-full bg-green-500 text-white text-xl font-black py-3 rounded-xl shadow-md border-b-4 border-green-700 pop-out">SUBMIT</button>
+                </div>`;
+
+            speak([`Question ${gameState.round}`, `Find two numbers that equal ${q.target}`]);
+        }
+
+        function renderSub5StarRound(q) {
+            gameState.activeSlot = 'slot1';
+            
+            app.innerHTML = `
+                <div class="formula-card p-3 bounce-in text-center">
+                    <div class="text-xs font-bold text-slate-400 mb-1">Question ${gameState.round}</div>
+                    <div class="text-xl font-black text-green-700 mb-3">Find two numbers that subtract to target!</div>
+                    
+                    <div class="flex items-center justify-center gap-2 mb-4">
+                        <div id="slot1" onclick="setActiveSlot('slot1')" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="handleDrop(event, 'slot1')" class="drop-slot ring-4 ring-green-400">?</div>
+                        <span class="text-2xl font-black text-slate-700">−</span>
+                        <div id="slot2" onclick="setActiveSlot('slot2')" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="handleDrop(event, 'slot2')" class="drop-slot">?</div>
+                        <span class="text-2xl font-black text-slate-700">=</span>
+                        <div class="min-w-16 px-3 h-14 bg-green-600 rounded-2xl flex items-center justify-center text-white font-black text-2xl shadow-md">${q.target}</div>
+                    </div>
+
+                    <div class="text-xs text-slate-400 font-bold mb-2">Drag & drop or tap a candidate number:</div>
+                    <div class="grid grid-cols-5 gap-2 px-1 mb-4">
+                        ${q.candidates.map(val => `<div draggable="true" ondragstart="handleDragStart(event, ${val})" onclick="selectCandidate(${val})" class="drag-chip bg-amber-400 hover:bg-amber-500 text-white font-black text-lg py-2 rounded-xl shadow-md border-b-4 border-amber-600 pop-out flex items-center justify-center">${val}</div>`).join('')}
+                    </div>
+
+                    <button onclick="submitSub5Star(${q.target})" class="w-full bg-green-500 text-white text-xl font-black py-3 rounded-xl shadow-md border-b-4 border-green-700 pop-out">SUBMIT</button>
+                </div>`;
+
+            speak([`Question ${gameState.round}`, `Find two numbers that subtract to equal ${q.target}`]);
+        }
+
+        function setActiveSlot(slotId) {
+            gameState.activeSlot = slotId;
+            const s1 = document.getElementById('slot1');
+            const s2 = document.getElementById('slot2');
+            if(s1 && s2) {
+                s1.classList.remove('ring-4', 'ring-green-400');
+                s2.classList.remove('ring-4', 'ring-green-400');
+                document.getElementById(slotId).classList.add('ring-4', 'ring-green-400');
+            }
+        }
+
+        function handleDragStart(e, val) {
+            e.dataTransfer.setData('text/plain', val.toString());
+        }
+
+        function allowDrop(e) {
+            e.preventDefault();
+            e.currentTarget.classList.add('drag-over');
+        }
+
+        function dragLeave(e) {
+            e.currentTarget.classList.remove('drag-over');
+        }
+
+        function handleDrop(e, slotId) {
+            e.preventDefault();
+            e.currentTarget.classList.remove('drag-over');
+            const val = e.dataTransfer.getData('text/plain');
+            if(val) {
+                fillSlot(slotId, val);
+            }
+        }
+
+        function selectCandidate(val) {
+            fillSlot(gameState.activeSlot, val);
+            if(gameState.activeSlot === 'slot1') setActiveSlot('slot2');
+        }
+
+        function fillSlot(slotId, val) {
+            const slot = document.getElementById(slotId);
+            if(slot) {
+                slot.innerText = val;
+                slot.dataset.val = val;
+            }
+        }
+
+        function submitAdd5Star(target) {
+            const s1 = document.getElementById('slot1');
+            const s2 = document.getElementById('slot2');
+            if(!s1 || !s2 || !s1.dataset.val || !s2.dataset.val) return;
+
+            const val1 = parseInt(s1.dataset.val, 10);
+            const val2 = parseInt(s2.dataset.val, 10);
+            const userSum = val1 + val2;
+
+            check(null, userSum);
+        }
+
+        function submitSub5Star(target) {
+            const s1 = document.getElementById('slot1');
+            const s2 = document.getElementById('slot2');
+            if(!s1 || !s2 || !s1.dataset.val || !s2.dataset.val) return;
+
+            const val1 = parseInt(s1.dataset.val, 10);
+            const val2 = parseInt(s2.dataset.val, 10);
+            const userDiff = val1 - val2;
+
+            check(null, userDiff);
         }
 
         function renderClockVisual(hour, minute) {
